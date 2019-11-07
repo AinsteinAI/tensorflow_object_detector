@@ -21,6 +21,7 @@ from std_msgs.msg import String , Header
 from sensor_msgs.msg import Image
 from cv_bridge import CvBridge, CvBridgeError
 from vision_msgs.msg import Detection2D, Detection2DArray, ObjectHypothesisWithPose
+from tensorflow_object_detector.srv import CheckIsReady
 
 # Object detection module imports
 import object_detection
@@ -69,11 +70,22 @@ class Detector:
 
     def __init__(self):
         self.image_pub = rospy.Publisher("debug_image",Image, queue_size=1)
-        self.object_pub = rospy.Publisher("objects", Detection2DArray, queue_size=1)
+        self.object_pub = rospy.Publisher("~objects", Detection2DArray, queue_size=1)
         self.bridge = CvBridge()
         self.image_sub = rospy.Subscriber("image", Image, self.image_cb, queue_size=1, buff_size=2**24)
         self.sess = tf.Session(graph=detection_graph,config=config)
 
+        # load the label map into the ROS parameter server as a list of strings of labels
+        rospy.set_param( "~labels", {str(c['id']): c['name'] for c in categories} )
+
+        # advertise that the detector node is ready
+        rospy.Service( 'check_is_ready', CheckIsReady, self.check_is_ready )
+
+
+    def check_is_ready(self, req):
+        return True
+    
+        
     def image_cb(self, data):
         objArray = Detection2DArray()
         try:
